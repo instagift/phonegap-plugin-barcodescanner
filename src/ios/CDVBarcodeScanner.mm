@@ -64,10 +64,12 @@
 @property (nonatomic, retain) AVCaptureVideoPreviewLayer* previewLayer;
 @property (nonatomic, retain) NSString*                   alternateXib;
 @property (nonatomic, retain) NSMutableArray*             results;
+@property (nonatomic, retain) NSString*                   formats;
 @property (nonatomic)         BOOL                        is1D;
 @property (nonatomic)         BOOL                        is2D;
 @property (nonatomic)         BOOL                        capturing;
 @property (nonatomic)         BOOL                        isFrontCamera;
+@property (nonatomic)         BOOL                        isShowFlipCameraButton;
 @property (nonatomic)         BOOL                        isFlipped;
 
 
@@ -144,12 +146,15 @@
 
     callback = command.callbackId;
 
-    // We allow the user to define an alternate xib file for loading the overlay.
-    NSString *overlayXib = nil;
-    if ( [command.arguments count] >= 1 )
-    {
-        overlayXib = [command.arguments objectAtIndex:0];
+    NSDictionary* options = command.arguments.count == 0 ? [NSNull null] : [command.arguments objectAtIndex:0];
+
+    if ([options isKindOfClass:[NSNull class]]) {
+      options = [NSDictionary dictionary];
     }
+    BOOL preferFrontCamera = [options[@"preferFrontCamera"] boolValue];
+    BOOL showFlipCameraButton = [options[@"showFlipCameraButton"] boolValue];
+    // We allow the user to define an alternate xib file for loading the overlay.
+    NSString *overlayXib = [options objectForKey:@"overlayXib"];
 
     capabilityError = [self isScanNotPossible];
     if (capabilityError) {
@@ -164,6 +169,17 @@
                  alterateOverlayXib:overlayXib
                  ];
     // queue [processor scanBarcode] to run on the event loop
+
+    if (preferFrontCamera) {
+      processor.isFrontCamera = true;
+    }
+
+    if (showFlipCameraButton) {
+      processor.isShowFlipCameraButton = true;
+    }
+
+    processor.formats = options[@"formats"];
+
     [processor performSelector:@selector(scanBarcode) withObject:nil afterDelay:0];
 }
 
@@ -323,7 +339,11 @@ parentViewController:(UIViewController*)parentViewController
 - (void)barcodeScanDone {
     self.capturing = NO;
     [self.captureSession stopRunning];
+<<<<<<< HEAD
     [self.parentViewController dismissViewControllerAnimated:YES completion:nil];
+=======
+    [self.parentViewController dismissViewControllerAnimated: YES completion:nil];
+>>>>>>> b20c04648b4cfcd1170e098c257e535cd6762f72
 
     // viewcontroller holding onto a reference to us, release them so they
     // will release us
@@ -385,12 +405,13 @@ parentViewController:(UIViewController*)parentViewController
     }
 }
 
-
-- (void)flipCamera
-{
+- (void)flipCamera {
     self.isFlipped = YES;
     self.isFrontCamera = !self.isFrontCamera;
-    [self performSelector:@selector(barcodeScanCancelled) withObject:nil afterDelay:0];
+    [self barcodeScanDone];
+    if (self.isFlipped) {
+      self.isFlipped = NO;
+    }
     [self performSelector:@selector(scanBarcode) withObject:nil afterDelay:0.1];
 }
 
@@ -401,7 +422,11 @@ parentViewController:(UIViewController*)parentViewController
     AVCaptureSession* captureSession = [[AVCaptureSession alloc] init];
     self.captureSession = captureSession;
 
+<<<<<<< HEAD
     AVCaptureDevice* __block device = nil;
+=======
+       AVCaptureDevice* __block device = nil;
+>>>>>>> b20c04648b4cfcd1170e098c257e535cd6762f72
     if (self.isFrontCamera) {
 
         NSArray* devices = [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo];
@@ -433,11 +458,13 @@ parentViewController:(UIViewController*)parentViewController
 
     [output setSampleBufferDelegate:self queue:dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0)];
 
-    if (![captureSession canSetSessionPreset:AVCaptureSessionPresetMedium]) {
-        return @"unable to preset medium quality video capture";
+    if ([captureSession canSetSessionPreset:AVCaptureSessionPresetHigh]) {
+      captureSession.sessionPreset = AVCaptureSessionPresetHigh;
+    } else if ([captureSession canSetSessionPreset:AVCaptureSessionPresetMedium]) {
+      captureSession.sessionPreset = AVCaptureSessionPresetMedium;
+    } else {
+      return @"unable to preset high nor medium quality video capture";
     }
-
-    captureSession.sessionPreset = AVCaptureSessionPresetMedium;
 
     if ([captureSession canAddInput:input]) {
         [captureSession addInput:input];
@@ -501,16 +528,36 @@ parentViewController:(UIViewController*)parentViewController
     //        NSTimeInterval timeStart = [NSDate timeIntervalSinceReferenceDate];
 
     try {
+        NSArray *supportedFormats = nil;
+        if (self.formats != nil) {
+            supportedFormats = [self.formats componentsSeparatedByString:@","];
+        }
         DecodeHints decodeHints;
-        decodeHints.addFormat(BarcodeFormat_QR_CODE);
-        decodeHints.addFormat(BarcodeFormat_DATA_MATRIX);
-        decodeHints.addFormat(BarcodeFormat_UPC_E);
-        decodeHints.addFormat(BarcodeFormat_UPC_A);
-        decodeHints.addFormat(BarcodeFormat_EAN_8);
-        decodeHints.addFormat(BarcodeFormat_EAN_13);
-        decodeHints.addFormat(BarcodeFormat_CODE_128);
-        decodeHints.addFormat(BarcodeFormat_CODE_39);
-        decodeHints.addFormat(BarcodeFormat_ITF);
+        if (supportedFormats == nil || [supportedFormats containsObject:[self formatStringFrom:BarcodeFormat_QR_CODE]]) {
+            decodeHints.addFormat(BarcodeFormat_QR_CODE);
+        }
+        if (supportedFormats == nil || [supportedFormats containsObject:[self formatStringFrom:BarcodeFormat_CODE_128]]) {
+            decodeHints.addFormat(BarcodeFormat_CODE_128);
+        }
+        if (supportedFormats == nil || [supportedFormats containsObject:[self formatStringFrom:BarcodeFormat_CODE_39]]) {
+            decodeHints.addFormat(BarcodeFormat_CODE_39);
+        }
+        if (supportedFormats == nil || [supportedFormats containsObject:[self formatStringFrom:BarcodeFormat_DATA_MATRIX]]) {
+            decodeHints.addFormat(BarcodeFormat_DATA_MATRIX);
+        }
+        if (supportedFormats == nil || [supportedFormats containsObject:[self formatStringFrom:BarcodeFormat_UPC_E]]) {
+            decodeHints.addFormat(BarcodeFormat_UPC_E);
+        }
+        if (supportedFormats == nil || [supportedFormats containsObject:[self formatStringFrom:BarcodeFormat_UPC_A]]) {
+            decodeHints.addFormat(BarcodeFormat_UPC_A);
+        }
+        if (supportedFormats == nil || [supportedFormats containsObject:[self formatStringFrom:BarcodeFormat_EAN_8]]) {
+            decodeHints.addFormat(BarcodeFormat_EAN_8);
+        }
+        if (supportedFormats == nil || [supportedFormats containsObject:[self formatStringFrom:BarcodeFormat_EAN_13]]) {
+            decodeHints.addFormat(BarcodeFormat_EAN_13);
+        }
+//        decodeHints.addFormat(BarcodeFormat_ITF);   causing crashes
 
         // here's the meat of the decode process
         Ref<LuminanceSource>   luminanceSource   ([self getLuminanceSourceFromSample: sampleBuffer imageBytes:&imageBytes]);
@@ -530,9 +577,6 @@ parentViewController:(UIViewController*)parentViewController
         if ([self checkResult:resultString]) {
             [self barcodeScanSucceeded:resultString format:format];
         }
-
-
-
     }
     catch (zxing::ReaderException &rex) {
         //            NSString *message = [[[NSString alloc] initWithCString:rex.what() encoding:NSUTF8StringEncoding] autorelease];
@@ -935,9 +979,17 @@ parentViewController:(UIViewController*)parentViewController
                         action:@selector(shutterButtonPressed)
                         ];
 
-    toolbar.items = [NSArray arrayWithObjects:flexSpace,cancelButton,flexSpace, flipCamera ,shutterButton,nil];
+    if (_processor.isShowFlipCameraButton) {
+      toolbar.items = [NSArray arrayWithObjects:flexSpace,cancelButton,flexSpace, flipCamera ,shutterButton,nil];
+    } else {
+      toolbar.items = [NSArray arrayWithObjects:flexSpace,cancelButton,flexSpace ,shutterButton,nil];
+    }
 #else
-    toolbar.items = [NSArray arrayWithObjects:flexSpace,cancelButton,flexSpace, flipCamera,nil];
+    if (_processor.isShowFlipCameraButton) {
+      toolbar.items = [NSArray arrayWithObjects:flexSpace,cancelButton,flexSpace, flipCamera,nil];
+    } else {
+      toolbar.items = [NSArray arrayWithObjects:flexSpace,cancelButton,flexSpace,nil];
+    }
 #endif
     bounds = overlayView.bounds;
 
@@ -1026,7 +1078,7 @@ parentViewController:(UIViewController*)parentViewController
 
 - (BOOL)shouldAutorotate
 {
-    return NO;
+  return NO; // if we want to support non-portrait orientation then this should change as well
 }
 
 - (UIInterfaceOrientation)preferredInterfaceOrientationForPresentation
