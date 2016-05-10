@@ -339,11 +339,7 @@ parentViewController:(UIViewController*)parentViewController
 - (void)barcodeScanDone {
     self.capturing = NO;
     [self.captureSession stopRunning];
-<<<<<<< HEAD
-    [self.parentViewController dismissViewControllerAnimated:YES completion:nil];
-=======
     [self.parentViewController dismissViewControllerAnimated: YES completion:nil];
->>>>>>> b20c04648b4cfcd1170e098c257e535cd6762f72
 
     // viewcontroller holding onto a reference to us, release them so they
     // will release us
@@ -422,11 +418,7 @@ parentViewController:(UIViewController*)parentViewController
     AVCaptureSession* captureSession = [[AVCaptureSession alloc] init];
     self.captureSession = captureSession;
 
-<<<<<<< HEAD
-    AVCaptureDevice* __block device = nil;
-=======
        AVCaptureDevice* __block device = nil;
->>>>>>> b20c04648b4cfcd1170e098c257e535cd6762f72
     if (self.isFrontCamera) {
 
         NSArray* devices = [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo];
